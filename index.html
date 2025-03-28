@@ -1,0 +1,1316 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chat Bot de Cuencas Hidrológicas</title>
+    <style>
+        body {font-family:Arial,sans-serif; max-width:800px; margin:0 auto; padding:10px;}
+        h1 {color:#2196F3; font-size:1.5rem;}
+        .topics {background-color:#f0f8ff; padding:10px; border-radius:5px; margin-bottom:10px; font-size:0.9rem;}
+        #chatbox {border:1px solid #ddd; height:300px; overflow-y:auto; padding:10px; margin-bottom:10px; background-color:#f9f9f9;}
+        .user-message {background-color:#2196F3; color:white; padding:8px; border-radius:5px; margin:5px 0; max-width:80%; margin-left:auto;}
+        .bot-message {background-color:#e9e9e9; padding:8px; border-radius:5px; margin:5px 0; max-width:80%;}
+        .input-area {display:flex; margin-top:10px; flex-wrap:wrap;}
+        #userInput {flex:1; padding:8px; border:1px solid #ddd; border-radius:4px; min-width:200px;}
+        button {margin:5px; padding:8px 15px; background-color:#4CAF50; color:white; border:none; border-radius:4px; cursor:pointer;}
+        #resetBtn {background-color:#f44336;}
+        #muteBtn {background-color:#FF9800;}
+        #micBtn {background-color:#9C27B0; opacity:1;}
+        #micBtn.listening {
+            background-color: #d32f2f;
+            animation: pulse 1.5s infinite;
+        }
+        #mexicoBasinsBtn {background-color:#009688;}
+        
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.6; }
+            100% { opacity: 1; }
+        }
+        
+        /* Estilo para el aviso y botón externo */
+        .warning-box {
+            background-color: #ff9800;
+            color: white;
+            padding: 20px;
+            border-radius: 5px;
+            margin: 15px 0;
+            text-align: center;
+        }
+        
+        .external-button {
+            display: block;
+            width: 80%;
+            margin: 20px auto;
+            padding: 20px;
+            background-color: #2196F3;
+            color: white;
+            font-size: 18px;
+            font-weight: bold;
+            text-align: center;
+            text-decoration: none;
+            border-radius: 8px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+            transition: all 0.3s ease;
+        }
+        
+        .external-button:hover {
+            background-color: #0b7dda;
+            box-shadow: 0 6px 12px rgba(0,0,0,0.3);
+            transform: translateY(-2px);
+        }
+        
+        .arrow {
+            display: inline-block;
+            margin-left: 10px;
+            font-size: 20px;
+        }
+
+        /* Estilos para el modal de cuencas */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 100;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            overflow: auto;
+            background-color: rgba(0,0,0,0.4);
+        }
+
+        .modal-content {
+            background-color: #fefefe;
+            margin: 5% auto;
+            padding: 20px;
+            border: 1px solid #888;
+            width: 80%;
+            max-width: 800px;
+            max-height: 80vh;
+            overflow-y: auto;
+            border-radius: 8px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+        }
+
+        .close-button {
+            color: #aaa;
+            float: right;
+            font-size: 28px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+
+        .close-button:hover {
+            color: black;
+        }
+
+        .region-list {
+            list-style-type: none;
+            padding: 0;
+            margin: 0;
+        }
+
+        .region-item {
+            padding: 10px;
+            margin: 5px 0;
+            background-color: #f1f1f1;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+
+        .region-item:hover {
+            background-color: #e0e0e0;
+        }
+
+        .basin-list {
+            list-style-type: disc;
+            padding-left: 20px;
+            margin: 10px 0;
+        }
+
+        .basin-item {
+            padding: 5px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+
+        .basin-item:hover {
+            background-color: #e0e0e0;
+        }
+
+        .region-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .expand-icon {
+            font-size: 18px;
+            transition: transform 0.3s;
+        }
+
+        .expanded .expand-icon {
+            transform: rotate(90deg);
+        }
+
+        .region-description {
+            margin: 10px 0;
+            line-height: 1.4;
+            font-size: 0.95em;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        .search-bar {
+            width: 100%;
+            padding: 10px;
+            margin-bottom: 15px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+
+        .basin-content {
+            animation: fadeIn 0.5s;
+        }
+
+        .basin-detail {
+            display: none;
+            padding: 10px;
+            background-color: #f5f5f5;
+            margin-top: 5px;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Chat Bot de Cuencas Hidrológicas</h1>
+    
+    <div class="warning-box">
+        <h2>⚠️ Versión con micrófono habilitado</h2>
+        <p>Esta versión incluye funcionalidad completa de reconocimiento de voz.
+        Haz clic en el botón del micrófono para hablar con el bot.</p>
+    </div>
+    
+    <a href="https://tatiyoma57.github.io/WEB_CHAT/" class="external-button" target="_blank">
+        🎤 ABRIR VERSIÓN COMPLETA CON MICRÓFONO <span class="arrow">→</span>
+    </a>
+    
+    <div class="topics"><b>Temas:</b> Cuencas hidrológicas, Hidrología, Erosión, Climatología, Cambio climático</div>
+    <div id="chatbox"></div>
+    
+    <div class="input-area">
+        <input type="text" id="userInput" placeholder="Escribe tu mensaje aquí...">
+        <button id="sendBtn">Enviar</button>
+        <button id="micBtn">🎤 Micrófono</button>
+        <button id="muteBtn">Silenciar</button>
+        <button id="resetBtn">Reiniciar</button>
+        <button id="mexicoBasinsBtn">🌊 Cuencas de México</button>
+    </div>
+    
+    <div class="ai-links">
+        <p><b>¿Necesitas información más específica?</b> Utiliza estas herramientas de IA gratuitas:</p>
+        <a href="https://chat.openai.com/" target="_blank"><button>ChatGPT</button></a>
+        <a href="https://bard.google.com/" target="_blank"><button>Google Bard</button></a>
+        <a href="https://www.bing.com/new" target="_blank"><button>Bing Chat</button></a>
+        <a href="https://huggingface.co/chat/" target="_blank"><button>HuggingChat</button></a>
+    </div>
+
+    <div id="basinsModal" class="modal">
+        <div class="modal-content">
+            <span class="close-button" id="closeModal">&times;</span>
+            <h2>Regiones Hidrológicas de México</h2>
+            <p>Selecciona una región para ver sus cuencas:</p>
+            <input type="text" id="regionSearch" class="search-bar" placeholder="Buscar región o cuenca...">
+            <div id="regionsContainer">
+                <!-- Las regiones se generarán dinámicamente aquí -->
+            </div>
+        </div>
+    </div>
+
+    <div id="basinDetailModal" class="modal">
+        <div class="modal-content">
+            <span class="close-button" id="closeBasinDetailModal">&times;</span>
+            <h2>Detalles de la Cuenca</h2>
+            <div id="basinDetailContent">
+                <!-- Detalles de la cuenca se generarán dinámicamente aquí -->
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Variables básicas
+        let userName = "";
+        let waitingForName = true;
+        let isMuted = false;
+        let isSearching = false;
+        
+        // Elementos DOM
+        const chatbox = document.getElementById('chatbox');
+        const userInput = document.getElementById('userInput');
+        const sendBtn = document.getElementById('sendBtn');
+        const resetBtn = document.getElementById('resetBtn');
+        const muteBtn = document.getElementById('muteBtn');
+        const micBtn = document.getElementById('micBtn');
+        
+        // Síntesis de voz
+        const speech = window.speechSynthesis;
+        
+        // Reconocimiento de voz
+        let recognition = null;
+        try {
+            const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+            recognition = new SpeechRecognition();
+            recognition.lang = 'es-ES';
+            recognition.continuous = false;
+            recognition.interimResults = false;
+            
+            // Configurar eventos para el reconocimiento de voz
+            recognition.onresult = function(event) {
+                const transcript = event.results[0][0].transcript;
+                userInput.value = transcript;
+                micBtn.classList.remove('listening');
+                // Enviar automáticamente el mensaje después de reconocer la voz
+                sendMessage();
+            };
+            
+            recognition.onerror = function(event) {
+                console.error('Error en reconocimiento de voz:', event.error);
+                micBtn.classList.remove('listening');
+            };
+            
+            recognition.onend = function() {
+                micBtn.classList.remove('listening');
+                userInput.placeholder = "Escribe tu mensaje aquí...";
+            };
+            
+        } catch(e) {
+            console.log('El reconocimiento de voz no está disponible en este navegador:', e);
+        }
+        
+        // Base de conocimientos hidrológicos (versión reducida para ejemplo)
+        const hydrologicalKnowledge = {
+            "cuenca": "Una cuenca hidrológica es un área geográfica donde el agua de lluvia, nieve o deshielo converge en un punto común, como un río, lago o el océano. Es la unidad natural para la gestión del agua y los recursos naturales.",
+            "ciclo hidrológico": "El ciclo hidrológico describe el movimiento continuo del agua en, sobre y debajo de la superficie de la Tierra. Incluye procesos de evaporación, condensación, precipitación, infiltración, escorrentía y flujo subterráneo.",
+            "escorrentía": "La escorrentía es el agua de lluvia que fluye sobre la superficie del suelo. Es un componente crucial del ciclo hidrológico que contribuye al caudal de los ríos y puede transportar sedimentos y contaminantes.",
+            "infiltración": "La infiltración es el proceso mediante el cual el agua penetra en el suelo. La tasa de infiltración depende de la textura del suelo, su estructura, contenido de humedad previo y compactación.",
+            "acuífero": "Un acuífero es una formación geológica subterránea que almacena y permite el flujo de agua. Pueden ser libres (con una tabla de agua) o confinados (bajo presión entre capas impermeables).",
+            "modelación hidrológica": "La modelación hidrológica es el proceso de representar matemáticamente el comportamiento del agua en una cuenca. Los modelos pueden ser conceptuales, físicos o de caja negra, y se utilizan para predecir caudales, inundaciones o calidad del agua.",
+            "erosión hídrica": "La erosión hídrica es el proceso de degradación del suelo causado por el agua. Incluye erosión por salpicadura, laminar, en surcos y cárcavas, y afecta la productividad del suelo y calidad del agua.",
+            "cambio climático": "El cambio climático está alterando los patrones hidrológicos globales, modificando la intensidad y frecuencia de precipitaciones, aumentando eventos extremos y afectando la disponibilidad de agua en muchas regiones."
+        };
+        
+        // Base de datos de regiones hidrológicas de México y sus cuencas
+        const mexicanHydrologicalRegions = {
+            "RH01 - Baja California Noroeste": {
+                description: "Región árida que abarca la parte noroeste de Baja California. Incluye importantes cuencas como el Río Tijuana y está caracterizada por un clima seco y escasa precipitación anual. Precipitación promedio: 200 mm/año. Área: 25,000 km². Vegetación: xerófila.",
+                basins: [
+                    { name: "Río Tijuana", details: "Cuenca que abastece a la ciudad de Tijuana, con un área de 1,500 km². Caudal promedio: 5 m³/s." },
+                    { name: "Río Las Palmas", details: "Cuenca pequeña que desemboca en el Océano Pacífico. Caudal promedio: 1 m³/s." },
+                    { name: "Río Guadalupe", details: "Río que cruza la región y es importante para la agricultura local. Caudal promedio: 3 m³/s." },
+                    { name: "Río El Descanso", details: "Río intermitente que se alimenta de lluvias estacionales. Caudal variable." },
+                    { name: "Río San Miguel", details: "Cuenca que se caracteriza por su escaso caudal. Caudal promedio: 0.5 m³/s." },
+                    { name: "Arroyo Escopeta", details: "Arroyo que se seca en temporadas de sequía. Caudal variable." },
+                    { name: "Arroyo San Rafael", details: "Arroyo que fluye hacia el Océano Pacífico. Caudal promedio: 0.8 m³/s." },
+                    { name: "Arroyo San Telmo", details: "Arroyo que presenta un caudal variable. Caudal promedio: 0.6 m³/s." },
+                    { name: "Arroyo Santo Tomás", details: "Arroyo que es importante para la fauna local. Caudal variable." },
+                    { name: "Arroyo San Vicente", details: "Arroyo que se utiliza para riego. Caudal promedio: 0.7 m³/s." }
+                ]
+            },
+            "RH02 - Baja California Centro-Oeste": {
+                description: "Comprende la zona central occidental de la península. Sus cuencas son principalmente arroyos intermitentes con régimen de flujo esporádico dependiente de lluvias estacionales. Precipitación promedio: 300 mm/año. Área: 15,000 km². Vegetación: matorral.",
+                basins: [
+                    { name: "Arroyo San Fernando", details: "Arroyo que se seca en verano. Caudal promedio: 2 m³/s." },
+                    { name: "Arroyo San Andrés", details: "Arroyo intermitente que fluye durante la temporada de lluvias. Caudal variable." },
+                    { name: "Arroyo Calamajué", details: "Arroyo que es importante para la fauna local. Caudal promedio: 1.5 m³/s." },
+                    { name: "Arroyo Santa Isabel", details: "Arroyo que presenta un caudal variable. Caudal promedio: 1 m³/s." },
+                    { name: "Arroyo Las Ánimas", details: "Arroyo que se utiliza para riego. Caudal promedio: 1.2 m³/s." },
+                    { name: "Arroyo Santa Clara", details: "Arroyo que desemboca en el Océano Pacífico. Caudal variable." }
+                ]
+            },
+            "RH03 - Baja California Suroeste": {
+                description: "Ubicada en el suroeste peninsular, esta región incluye varios arroyos importantes que desembocan en el Océano Pacífico. El clima es semiárido con vegetación principalmente xerófila. Precipitación promedio: 400 mm/año. Área: 20,000 km². Vegetación: desierto.",
+                basins: [
+                    { name: "Arroyo Río San Ignacio", details: "Arroyo que es importante para la agricultura local. Caudal promedio: 4 m³/s." },
+                    { name: "Arroyo La Purísima", details: "Arroyo que desemboca en el Océano Pacífico. Caudal promedio: 3 m³/s." },
+                    { name: "Arroyo San Gregorio", details: "Arroyo que presenta un caudal variable. Caudal promedio: 2.5 m³/s." },
+                    { name: "Arroyo Cadejé", details: "Arroyo que se seca en verano. Caudal variable." },
+                    { name: "Arroyo Santa Águeda", details: "Arroyo que es importante para la fauna local. Caudal promedio: 1.8 m³/s." }
+                ]
+            },
+            "RH04 - Baja California Noreste": {
+                description: "Dominada por el delta del Río Colorado y zonas desérticas. Es una región con alta importancia ecológica y para la conservación de especies endémicas del desierto. Precipitación promedio: 150 mm/año. Área: 30,000 km². Vegetación: desierto.",
+                basins: [
+                    { name: "Río Colorado", details: "Río que forma parte de la frontera entre México y EE.UU. Caudal promedio: 1,500 m³/s." },
+                    { name: "Cuenca Laguna Salada", details: "Cuenca que es importante para la biodiversidad. Caudal variable." },
+                    { name: "Desierto de Altar", details: "Zona árida con escasa vegetación. Caudal variable." }
+                ]
+            },
+            "RH05 - Baja California Centro-Este": {
+                description: "Comprende la parte central de la península hacia el Golfo de California. Incluye oasis importantes y arroyos que son vitales para los ecosistemas locales. Precipitación promedio: 250 mm/año. Área: 18,000 km². Vegetación: matorral y oasis.",
+                basins: [
+                    { name: "Arroyo Las Vírgenes", details: "Arroyo que es importante para la fauna local. Caudal promedio: 1.2 m³/s." },
+                    { name: "Arroyo Mulegé", details: "Arroyo que se utiliza para riego. Caudal promedio: 1.5 m³/s." },
+                    { name: "Arroyo Comondú", details: "Arroyo que presenta un caudal variable. Caudal promedio: 1 m³/s." }
+                ]
+            },
+            "RH06 - Baja California Sureste": {
+                description: "Región que abarca la parte sureste de la península. Sus arroyos son fundamentales para el abastecimiento de agua en zonas turísticas como Los Cabos y La Paz. Precipitación promedio: 350 mm/año. Área: 22,000 km². Vegetación: matorral y palmeras.",
+                basins: [
+                    { name: "Arroyo Santiago", details: "Arroyo que es importante para la agricultura local. Caudal promedio: 2.5 m³/s." },
+                    { name: "Arroyo Todos Santos", details: "Arroyo que desemboca en el Océano Pacífico. Caudal promedio: 2 m³/s." },
+                    { name: "Arroyo La Paz", details: "Arroyo que presenta un caudal variable. Caudal promedio: 1.8 m³/s." },
+                    { name: "Arroyo San José del Cabo", details: "Arroyo que es importante para la fauna local. Caudal promedio: 1.5 m³/s." },
+                    { name: "Arroyo San Bruno", details: "Arroyo que se utiliza para riego. Caudal promedio: 1.2 m³/s." }
+                ]
+            },
+            "RH07 - Río Colorado": {
+                description: "Comprende principalmente el delta del Río Colorado en territorio mexicano. Es una zona de gran importancia ecológica y para los acuerdos binacionales de agua entre México y EE.UU. Precipitación promedio: 100 mm/año. Área: 40,000 km². Vegetación: desierto y humedales.",
+                basins: [
+                    { name: "Río Colorado", details: "Río que es vital para el suministro de agua en la región. Caudal promedio: 1,500 m³/s." },
+                    { name: "Delta del Río Colorado", details: "Zona ecológica con alta biodiversidad. Caudal variable." }
+                ]
+            },
+            "RH08 - Sonora Norte": {
+                description: "Ubicada en el norte de Sonora, incluye cuencas que nacen en la Sierra Madre Occidental. La región enfrenta desafíos de escasez de agua y sobreexplotación de acuíferos. Precipitación promedio: 500 mm/año. Área: 35,000 km². Vegetación: bosque templado.",
+                basins: [
+                    { name: "Río Sonoyta", details: "Río que es importante para la fauna local. Caudal promedio: 2 m³/s." },
+                    { name: "Río Concepción", details: "Río que presenta un caudal variable. Caudal promedio: 1.5 m³/s." },
+                    { name: "Río Asunción", details: "Río que se utiliza para riego. Caudal promedio: 1 m³/s." },
+                    { name: "Río San Ignacio", details: "Río que es vital para la agricultura local. Caudal promedio: 1.2 m³/s." }
+                ]
+            },
+            "RH09 - Sonora Sur": {
+                description: "Abarca la porción sur del estado de Sonora, con ríos que son vitales para la agricultura y desarrollo económico regional. El Río Yaqui es particularmente importante para irrigación. Precipitación promedio: 600 mm/año. Área: 28,000 km². Vegetación: matorral y cultivos.",
+                basins: [
+                    { name: "Río Sonora", details: "Río que es importante para la agricultura local. Caudal promedio: 3 m³/s." },
+                    { name: "Río San Miguel", details: "Río que presenta un caudal variable. Caudal promedio: 2 m³/s." },
+                    { name: "Río Mátape", details: "Río que se utiliza para riego. Caudal promedio: 1.5 m³/s." },
+                    { name: "Río Yaqui", details: "Río vital para la irrigación. Caudal promedio: 4 m³/s." },
+                    { name: "Río Mayo", details: "Río que es importante para la fauna local. Caudal promedio: 2.5 m³/s." }
+                ]
+            },
+            "RH10 - Sinaloa": {
+                description: "Una de las regiones hidrológicas más productivas de México. Sus ríos sustentan importantes distritos de riego que producen gran parte de las hortalizas del país. Precipitación promedio: 800 mm/año. Área: 50,000 km². Vegetación: cultivos y matorral.",
+                basins: [
+                    { name: "Río Fuerte", details: "Río que es vital para la agricultura local. Caudal promedio: 10 m³/s." },
+                    { name: "Río Sinaloa", details: "Río que presenta un caudal variable. Caudal promedio: 8 m³/s." },
+                    { name: "Río Culiacán", details: "Río que se utiliza para riego. Caudal promedio: 7 m³/s." },
+                    { name: "Río San Lorenzo", details: "Río que es importante para la fauna local. Caudal promedio: 6 m³/s." },
+                    { name: "Río Elota", details: "Río que se utiliza para riego. Caudal promedio: 5 m³/s." },
+                    { name: "Río Piaxtla", details: "Río que es vital para la agricultura local. Caudal promedio: 4 m³/s." },
+                    { name: "Río Quelite", details: "Río que presenta un caudal variable. Caudal promedio: 3 m³/s." },
+                    { name: "Río Presidio", details: "Río que es importante para la fauna local. Caudal promedio: 2.5 m³/s." },
+                    { name: "Río Baluarte", details: "Río que se utiliza para riego. Caudal promedio: 2 m³/s." }
+                ]
+            },
+            "RH11 - Presidio-San Pedro": {
+                description: "Región que comprende cuencas compartidas entre Sinaloa, Durango y Nayarit. Sus ríos son importantes para la generación hidroeléctrica y actividades agrícolas. Precipitación promedio: 700 mm/año. Área: 30,000 km². Vegetación: matorral y cultivos.",
+                basins: [
+                    { name: "Río Presidio", details: "Río que es vital para la agricultura local. Caudal promedio: 3 m³/s." },
+                    { name: "Río Baluarte", details: "Río que presenta un caudal variable. Caudal promedio: 2.5 m³/s." },
+                    { name: "Río Acaponeta", details: "Río que se utiliza para riego. Caudal promedio: 2 m³/s." },
+                    { name: "Río San Pedro", details: "Río que es importante para la fauna local. Caudal promedio: 1.5 m³/s." }
+                ]
+            },
+            "RH12 - Lerma-Santiago": {
+                description: "Una de las regiones hidrológicas más importantes del país. El sistema Lerma-Chapala-Santiago atraviesa cinco estados y abastece a más de 15 millones de personas. Precipitación promedio: 900 mm/año. Área: 60,000 km². Vegetación: bosque y cultivos.",
+                basins: [
+                    { name: "Río Lerma", details: "Río que es vital para el suministro de agua en la región. Caudal promedio: 20 m³/s." },
+                    { name: "Lago de Chapala", details: "Lago más grande de México. Caudal variable." },
+                    { name: "Río Santiago", details: "Río que presenta un caudal variable. Caudal promedio: 15 m³/s." },
+                    { name: "Río Zula", details: "Río que se utiliza para riego. Caudal promedio: 10 m³/s." },
+                    { name: "Río Verde", details: "Río que es importante para la fauna local. Caudal promedio: 8 m³/s." },
+                    { name: "Río Juchipila", details: "Río que presenta un caudal variable. Caudal promedio: 7 m³/s." },
+                    { name: "Río Bolaños", details: "Río que se utiliza para riego. Caudal promedio: 6 m³/s." },
+                    { name: "Río Huaynamota", details: "Río que es vital para la agricultura local. Caudal promedio: 5 m³/s." },
+                    { name: "Río Mololoa", details: "Río que presenta un caudal variable. Caudal promedio: 4 m³/s." },
+                    { name: "Río Grande de Santiago", details: "Río que es importante para la fauna local. Caudal promedio: 3 m³/s." }
+                ]
+            },
+            "RH13 - Río Huicicila": {
+                description: "Pequeña región ubicada en la costa de Nayarit. Sus cuencas son cortas pero con caudales importantes debido a la alta precipitación de la zona. Precipitación promedio: 1,200 mm/año. Área: 5,000 km². Vegetación: selva tropical.",
+                basins: [
+                    { name: "Río Huicicila", details: "Río que es vital para la agricultura local. Caudal promedio: 2.5 m³/s." },
+                    { name: "Río San Blas", details: "Río que presenta un caudal variable. Caudal promedio: 2 m³/s." },
+                    { name: "Río Santiago-Aguamilpa", details: "Río que se utiliza para riego. Caudal promedio: 1.5 m³/s." }
+                ]
+            },
+            "RH14 - Río Ameca": {
+                description: "Abarca partes de Jalisco y Nayarit, con el Río Ameca como corriente principal. Sus recursos hídricos son fundamentales para el desarrollo turístico de Puerto Vallarta. Precipitación promedio: 1,000 mm/año. Área: 10,000 km². Vegetación: selva y matorral.",
+                basins: [
+                    { name: "Río Ameca", details: "Río que es vital para la agricultura local. Caudal promedio: 3 m³/s." },
+                    { name: "Río Mascota", details: "Río que presenta un caudal variable. Caudal promedio: 2.5 m³/s." },
+                    { name: "Río Cuale", details: "Río que se utiliza para riego. Caudal promedio: 2 m³/s." },
+                    { name: "Río Pitillal", details: "Río que es importante para la fauna local. Caudal promedio: 1.5 m³/s." },
+                    { name: "Río Tomatlán", details: "Río que presenta un caudal variable. Caudal promedio: 1 m³/s." }
+                ]
+            },
+            "RH15 - Costa de Jalisco": {
+                description: "Comprende ríos que nacen en la Sierra Madre del Sur y desembocan en el Pacífico. La región es importante para la conservación de ecosistemas costeros y manglar. Precipitación promedio: 1,500 mm/año. Área: 12,000 km². Vegetación: manglares y selva.",
+                basins: [
+                    { name: "Río Purificación", details: "Río que es vital para la agricultura local. Caudal promedio: 3 m³/s." },
+                    { name: "Río Cihuatlán", details: "Río que presenta un caudal variable. Caudal promedio: 2.5 m³/s." },
+                    { name: "Río San Nicolás", details: "Río que se utiliza para riego. Caudal promedio: 2 m³/s." },
+                    { name: "Río Cuitzmala", details: "Río que es importante para la fauna local. Caudal promedio: 1.5 m³/s." },
+                    { name: "Río Marabasco", details: "Río que presenta un caudal variable. Caudal promedio: 1 m³/s." }
+                ]
+            },
+            "RH16 - Armería-Coahuayana": {
+                description: "Ubicada entre Colima, Jalisco y Michoacán. Sus ríos son esenciales para la agricultura local y presentan un régimen perenne debido a las lluvias consistentes en la zona. Precipitación promedio: 1,200 mm/año. Área: 15,000 km². Vegetación: matorral y cultivos.",
+                basins: [
+                    { name: "Río Armería", details: "Río que es vital para la agricultura local. Caudal promedio: 2.5 m³/s." },
+                    { name: "Río Coahuayana", details: "Río que presenta un caudal variable. Caudal promedio: 2 m³/s." },
+                    { name: "Río Tuxpan", details: "Río que se utiliza para riego. Caudal promedio: 1.5 m³/s." }
+                ]
+            },
+            "RH17 - Costa de Michoacán": {
+                description: "Región costera con cuencas de tamaño medio que desembocan en el Pacífico. Presenta importantes desafíos de conservación y manejo sostenible del agua. Precipitación promedio: 1,000 mm/año. Área: 20,000 km². Vegetación: selva y manglares.",
+                basins: [
+                    { name: "Río Nexpa", details: "Río que es vital para la agricultura local. Caudal promedio: 2.5 m³/s." },
+                    { name: "Río Ostula", details: "Río que presenta un caudal variable. Caudal promedio: 2 m³/s." },
+                    { name: "Río Aquila", details: "Río que se utiliza para riego. Caudal promedio: 1.5 m³/s." },
+                    { name: "Río Coahuayana", details: "Río que es importante para la fauna local. Caudal promedio: 1 m³/s." }
+                ]
+            },
+            "RH18 - Balsas": {
+                description: "Una de las cuencas más grandes del país, abarca siete estados. El Río Balsas y sus afluentes son cruciales para la generación hidroeléctrica y el desarrollo agrícola regional. Precipitación promedio: 800 mm/año. Área: 70,000 km². Vegetación: bosque y cultivos.",
+                basins: [
+                    { name: "Río Balsas", details: "Río que es vital para el suministro de agua en la región. Caudal promedio: 20 m³/s." },
+                    { name: "Río Tepalcatepec", details: "Río que presenta un caudal variable. Caudal promedio: 15 m³/s." },
+                    { name: "Río Cutzamala", details: "Río que se utiliza para riego. Caudal promedio: 10 m³/s." },
+                    { name: "Río Amacuzac", details: "Río que es importante para la fauna local. Caudal promedio: 8 m³/s." },
+                    { name: "Río Grande de Iguala", details: "Río que presenta un caudal variable. Caudal promedio: 6 m³/s." },
+                    { name: "Río Atoyac", details: "Río que se utiliza para riego. Caudal promedio: 5 m³/s." },
+                    { name: "Río Mixteco", details: "Río que es vital para la agricultura local. Caudal promedio: 4 m³/s." },
+                    { name: "Río Tlapaneco", details: "Río que presenta un caudal variable. Caudal promedio: 3 m³/s." }
+                ]
+            },
+            "RH19 - Costa Grande de Guerrero": {
+                description: "Comprende los ríos de la Costa Grande de Guerrero que descienden de la Sierra Madre del Sur. Son cuencas cortas pero con caudales importantes por la orografía de la región. Precipitación promedio: 1,200 mm/año. Área: 18,000 km². Vegetación: selva y matorral.",
+                basins: [
+                    { name: "Río Coyuquilla", details: "Río que es vital para la agricultura local. Caudal promedio: 2.5 m³/s." },
+                    { name: "Río Ixtapa", details: "Río que presenta un caudal variable. Caudal promedio: 2 m³/s." },
+                    { name: "Río San Jeronimito", details: "Río que se utiliza para riego. Caudal promedio: 1.5 m³/s." },
+                    { name: "Río Petatlán", details: "Río que es importante para la fauna local. Caudal promedio: 1 m³/s." },
+                    { name: "Río Coyuca", details: "Río que presenta un caudal variable. Caudal promedio: 0.8 m³/s." },
+                    { name: "Río Atoyac", details: "Río que se utiliza para riego. Caudal promedio: 0.6 m³/s." }
+                ]
+            },
+            "RH20 - Costa Chica de Guerrero": {
+                description: "Abarca los ríos de la Costa Chica guerrerense. La región enfrenta problemas de deforestación que afectan el régimen hidrológico de sus cuencas. Precipitación promedio: 1,000 mm/año. Área: 16,000 km². Vegetación: matorral y cultivos.",
+                basins: [
+                    { name: "Río Nexpa", details: "Río que es vital para la agricultura local. Caudal promedio: 2 m³/s." },
+                    { name: "Río Copala", details: "Río que presenta un caudal variable. Caudal promedio: 1.5 m³/s." },
+                    { name: "Río Marquelia", details: "Río que se utiliza para riego. Caudal promedio: 1 m³/s." },
+                    { name: "Río Papagayo", details: "Río que es importante para la fauna local. Caudal promedio: 0.8 m³/s." },
+                    { name: "Río de la Sabana", details: "Río que presenta un caudal variable. Caudal promedio: 0.6 m³/s." },
+                    { name: "Río Coyuca", details: "Río que se utiliza para riego. Caudal promedio: 0.5 m³/s." }
+                ]
+            },
+            "RH21 - Costa de Oaxaca": {
+                description: "Incluye ríos importantes de la costa oaxaqueña. El Río Verde es la cuenca más importante y presenta caudales significativos en temporada de lluvias. Precipitación promedio: 1,500 mm/año. Área: 25,000 km². Vegetación: selva y manglares.",
+                basins: [
+                    { name: "Río Verde", details: "Río que es vital para la agricultura local. Caudal promedio: 3 m³/s." },
+                    { name: "Río Colotepec", details: "Río que presenta un caudal variable. Caudal promedio: 2.5 m³/s." },
+                    { name: "Río Copalita", details: "Río que se utiliza para riego. Caudal promedio: 2 m³/s." },
+                    { name: "Río Tehuantepec", details: "Río que es importante para la fauna local. Caudal promedio: 1.5 m³/s." }
+                ]
+            },
+            "RH22 - Tehuantepec": {
+                description: "Región centrada en el Río Tehuantepec y su cuenca. Tiene gran importancia histórica y cultural, además de ser zona de transición entre ecosistemas del Golfo y el Pacífico. Precipitación promedio: 1,200 mm/año. Área: 30,000 km². Vegetación: selva y matorral.",
+                basins: [
+                    { name: "Río Tehuantepec", details: "Río que es vital para la agricultura local. Caudal promedio: 3 m³/s." },
+                    { name: "Río Mixteco", details: "Río que presenta un caudal variable. Caudal promedio: 2.5 m³/s." },
+                    { name: "Río Coatzacoalcos (porción)", details: "Río que se utiliza para riego. Caudal promedio: 2 m³/s." }
+                ]
+            },
+            "RH23 - Costa de Chiapas": {
+                description: "Comprende los ríos de la costa chiapaneca, incluyendo el Suchiate en la frontera con Guatemala. La región recibe alta precipitación y sus cuencas son propensas a inundaciones. Precipitación promedio: 1,800 mm/año. Área: 22,000 km². Vegetación: selva tropical.",
+                basins: [
+                    { name: "Río Suchiate", details: "Río que es vital para la agricultura local. Caudal promedio: 4 m³/s." },
+                    { name: "Río Cahoacán", details: "Río que presenta un caudal variable. Caudal promedio: 3 m³/s." },
+                    { name: "Río Coatán", details: "Río que se utiliza para riego. Caudal promedio: 2.5 m³/s." },
+                    { name: "Río Huixtla", details: "Río que es importante para la fauna local. Caudal promedio: 2 m³/s." },
+                    { name: "Río Huehuetán", details: "Río que presenta un caudal variable. Caudal promedio: 1.5 m³/s." },
+                    { name: "Río Pijijiapan", details: "Río que se utiliza para riego. Caudal promedio: 1 m³/s." }
+                ]
+            },
+            "RH24 - Bravo-Conchos": {
+                description: "Una de las regiones más extensas, incluye la cuenca compartida del Río Bravo/Grande con EE.UU. Enfrenta grandes desafíos de escasez y distribución equitativa del agua. Precipitación promedio: 600 mm/año. Área: 50,000 km². Vegetación: matorral y cultivos.",
+                basins: [
+                    { name: "Río Bravo", details: "Río que es vital para el suministro de agua en la región. Caudal promedio: 15 m³/s." },
+                    { name: "Río Conchos", details: "Río que presenta un caudal variable. Caudal promedio: 10 m³/s." },
+                    { name: "Río San Juan", details: "Río que se utiliza para riego. Caudal promedio: 8 m³/s." },
+                    { name: "Río San Rodrigo", details: "Río que es importante para la fauna local. Caudal promedio: 6 m³/s." },
+                    { name: "Río Álamo", details: "Río que presenta un caudal variable. Caudal promedio: 5 m³/s." },
+                    { name: "Río Sabinas", details: "Río que se utiliza para riego. Caudal promedio: 4 m³/s." },
+                    { name: "Río Salado", details: "Río que es vital para la agricultura local. Caudal promedio: 3 m³/s." }
+                ]
+            },
+            "RH25 - San Fernando-Soto la Marina": {
+                description: "Ubicada en Tamaulipas, sus ríos desembocan en el Golfo de México. La región es importante para la pesca y conservación de humedales costeros. Precipitación promedio: 700 mm/año. Área: 20,000 km². Vegetación: humedales y matorral.",
+                basins: [
+                    { name: "Río San Fernando", details: "Río que es vital para la agricultura local. Caudal promedio: 2.5 m³/s." },
+                    { name: "Río Soto la Marina", details: "Río que presenta un caudal variable. Caudal promedio: 2 m³/s." },
+                    { name: "Río Purificación", details: "Río que se utiliza para riego. Caudal promedio: 1.5 m³/s." },
+                    { name: "Río Corona", details: "Río que es importante para la fauna local. Caudal promedio: 1 m³/s." },
+                    { name: "Río San Carlos", details: "Río que presenta un caudal variable. Caudal promedio: 0.8 m³/s." }
+                ]
+            },
+            "RH26 - Pánuco": {
+                description: "Extensa región que abarca cinco estados del centro-este de México. El sistema del Río Pánuco es vital para el abastecimiento de agua a zonas urbanas e industriales. Precipitación promedio: 800 mm/año. Área: 45,000 km². Vegetación: matorral y cultivos.",
+                basins: [
+                    { name: "Río Pánuco", details: "Río que es vital para el suministro de agua en la región. Caudal promedio: 10 m³/s." },
+                    { name: "Río Tamesí", details: "Río que presenta un caudal variable. Caudal promedio: 8 m³/s." },
+                    { name: "Río Moctezuma", details: "Río que se utiliza para riego. Caudal promedio: 6 m³/s." },
+                    { name: "Río Santa María", details: "Río que es importante para la fauna local. Caudal promedio: 5 m³/s." },
+                    { name: "Río Tempoal", details: "Río que presenta un caudal variable. Caudal promedio: 4 m³/s." },
+                    { name: "Río Extóraz", details: "Río que se utiliza para riego. Caudal promedio: 3 m³/s." },
+                    { name: "Río Verde", details: "Río que es vital para la agricultura local. Caudal promedio: 2 m³/s." },
+                    { name: "Río Tampaón", details: "Río que presenta un caudal variable. Caudal promedio: 1.5 m³/s." }
+                ]
+            },
+            "RH27 - Tuxpan-Nautla": {
+                description: "Comprende varios ríos de la vertiente este del Golfo. Se caracteriza por cuencas cortas pero caudalosas debido a la alta precipitación en la Sierra Madre Oriental. Precipitación promedio: 1,000 mm/año. Área: 18,000 km². Vegetación: selva y matorral.",
+                basins: [
+                    { name: "Río Tuxpan", details: "Río que es vital para la agricultura local. Caudal promedio: 3 m³/s." },
+                    { name: "Río Cazones", details: "Río que presenta un caudal variable. Caudal promedio: 2.5 m³/s." },
+                    { name: "Río Tecolutla", details: "Río que se utiliza para riego. Caudal promedio: 2 m³/s." },
+                    { name: "Río Nautla", details: "Río que es importante para la fauna local. Caudal promedio: 1.5 m³/s." },
+                    { name: "Río Misantla", details: "Río que presenta un caudal variable. Caudal promedio: 1 m³/s." }
+                ]
+            },
+            "RH28 - Papaloapan": {
+                description: "Una de las regiones con mayor abundancia hídrica del país. El sistema del Papaloapan drena extensas zonas de Oaxaca, Puebla y Veracruz, creando humedales de gran importancia. Precipitación promedio: 1,200 mm/año. Área: 55,000 km². Vegetación: humedales y cultivos.",
+                basins: [
+                    { name: "Río Papaloapan", details: "Río que es vital para el suministro de agua en la región. Caudal promedio: 15 m³/s." },
+                    { name: "Río Santo Domingo", details: "Río que presenta un caudal variable. Caudal promedio: 10 m³/s." },
+                    { name: "Río Valle Nacional", details: "Río que se utiliza para riego. Caudal promedio: 8 m³/s." },
+                    { name: "Río Tonto", details: "Río que es importante para la fauna local. Caudal promedio: 6 m³/s." },
+                    { name: "Río Blanco", details: "Río que presenta un caudal variable. Caudal promedio: 5 m³/s." },
+                    { name: "Río Obispo", details: "Río que se utiliza para riego. Caudal promedio: 4 m³/s." },
+                    { name: "Río San Juan", details: "Río que es vital para la agricultura local. Caudal promedio: 3 m³/s." }
+                ]
+            },
+            "RH29 - Coatzacoalcos": {
+                description: "Centrada en la cuenca del Río Coatzacoalcos en el sur de Veracruz. Es una región de alta precipitación y biodiversidad, vital para la industria petrolera del país. Precipitación promedio: 1,500 mm/año. Área: 30,000 km². Vegetación: selva y manglares.",
+                basins: [
+                    { name: "Río Coatzacoalcos", details: "Río que es vital para la agricultura local. Caudal promedio: 20 m³/s." },
+                    { name: "Río Uxpanapa", details: "Río que presenta un caudal variable. Caudal promedio: 15 m³/s." },
+                    { name: "Río Coachapa", details: "Río que se utiliza para riego. Caudal promedio: 10 m³/s." },
+                    { name: "Río Calzadas", details: "Río que es importante para la fauna local. Caudal promedio: 8 m³/s." },
+                    { name: "Río Tonalá", details: "Río que presenta un caudal variable. Caudal promedio: 6 m³/s." }
+                ]
+            },
+            "RH30 - Grijalva-Usumacinta": {
+                description: "La región con mayor disponibilidad de agua en México. Sus ríos forman la frontera parcial con Guatemala y son claves para la generación hidroeléctrica y conservación de selvas tropicales. Precipitación promedio: 1,800 mm/año. Área: 80,000 km². Vegetación: selva tropical.",
+                basins: [
+                    { name: "Río Grijalva", details: "Río que es vital para el suministro de agua en la región. Caudal promedio: 25 m³/s." },
+                    { name: "Río Usumacinta", details: "Río que presenta un caudal variable. Caudal promedio: 20 m³/s." },
+                    { name: "Río Lacantún", details: "Río que se utiliza para riego. Caudal promedio: 15 m³/s." },
+                    { name: "Río de la Pasión", details: "Río que es importante para la fauna local. Caudal promedio: 12 m³/s." },
+                    { name: "Río Chixoy", details: "Río que presenta un caudal variable. Caudal promedio: 10 m³/s." },
+                    { name: "Río San Pedro", details: "Río que se utiliza para riego. Caudal promedio: 8 m³/s." },
+                    { name: "Río Lacanjá", details: "Río que es vital para la agricultura local. Caudal promedio: 6 m³/s." },
+                    { name: "Río Tzendales", details: "Río que presenta un caudal variable. Caudal promedio: 5 m³/s." }
+                ]
+            },
+            "RH31 - Yucatán Oeste": {
+                description: "Ubicada en Campeche, esta región tiene pocos ríos superficiales debido a la geología cárstica. El Río Candelaria es su corriente principal y forma importantes humedales. Precipitación promedio: 1,000 mm/año. Área: 10,000 km². Vegetación: selva y humedales.",
+                basins: [
+                    { name: "Río Champotón", details: "Río que es vital para la agricultura local. Caudal promedio: 2 m³/s." },
+                    { name: "Río Candelaria", details: "Río que presenta un caudal variable. Caudal promedio: 1.5 m³/s." },
+                    { name: "Río Mamantel", details: "Río que se utiliza para riego. Caudal promedio: 1 m³/s." },
+                    { name: "Río Palizada", details: "Río que es importante para la fauna local. Caudal promedio: 0.8 m³/s." }
+                ]
+            },
+            "RH32 - Yucatán Norte": {
+                description: "Comprende la mayor parte de la península de Yucatán. Se caracteriza por la ausencia de ríos superficiales, con un sistema hidrológico dominado por cenotes y ríos subterráneos. Precipitación promedio: 800 mm/año. Área: 12,000 km². Vegetación: selva y cenotes.",
+                basins: [
+                    { name: "Cuenca Cerrada Principal", details: "Zona con cenotes importantes. Caudal variable." },
+                    { name: "Región de Cenotes", details: "Sistema de ríos subterráneos. Caudal variable." },
+                    { name: "Región Norte de Yucatán", details: "Zona con escasa vegetación. Caudal variable." }
+                ]
+            },
+            "RH33 - Yucatán Este": {
+                description: "Localizada en Quintana Roo, incluye sistemas lagunares importantes como Bacalar. La región posee una compleja red de ríos subterráneos que desembocan en el Mar Caribe. Precipitación promedio: 1,200 mm/año. Área: 15,000 km². Vegetación: selva y manglares.",
+                basins: [
+                    { name: "Cuenca Bahía de Chetumal", details: "Río que es vital para la agricultura local. Caudal promedio: 3 m³/s." },
+                    { name: "Cuenca Río Hondo", details: "Río que presenta un caudal variable. Caudal promedio: 2.5 m³/s." },
+                    { name: "Sistema Lagunar Bacalar", details: "Sistema de lagunas que es importante para la fauna local. Caudal variable." }
+                ]
+            },
+            "RH34 - Cuencas Cerradas del Norte": {
+                description: "Región árida del norte del país sin salida al mar. Sus escasas corrientes terminan en lagos y lagunas interiores que frecuentemente se secan por evaporación. Precipitación promedio: 200 mm/año. Área: 8,000 km². Vegetación: desierto.",
+                basins: [
+                    { name: "Cuenca Cerrada del Bolsón de Mapimí", details: "Zona árida con escasa vegetación. Caudal variable." },
+                    { name: "El Llano", details: "Zona con lagunas interiores. Caudal variable." },
+                    { name: "Laguna de Tlahualilo", details: "Laguna que se seca en verano. Caudal variable." },
+                    { name: "Arroyo La India", details: "Arroyo que presenta un caudal variable. Caudal promedio: 0.5 m³/s." }
+                ]
+            },
+            "RH35 - Mapimí": {
+                description: "Ubicada en la región desértica del norte, sus cuencas desembocan en lagunas interiores. La región enfrenta graves problemas de disponibilidad y calidad del agua. Precipitación promedio: 150 mm/año. Área: 5,000 km². Vegetación: desierto.",
+                basins: [
+                    { name: "Laguna de Mayrán", details: "Laguna que se seca en verano. Caudal variable." },
+                    { name: "Laguna de Viesca", details: "Laguna que presenta un caudal variable. Caudal promedio: 0.5 m³/s." },
+                    { name: "Río Nazas", details: "Río que es vital para la agricultura local. Caudal promedio: 2 m³/s." },
+                    { name: "Río Aguanaval", details: "Río que presenta un caudal variable. Caudal promedio: 1.5 m³/s." }
+                ]
+            },
+            "RH36 - Nazas-Aguanaval": {
+                description: "Comprende las cuencas de los ríos Nazas y Aguanaval que abastecen a la Comarca Lagunera. Es una región con alta presión sobre los recursos hídricos debido a la agricultura intensiva. Precipitación promedio: 300 mm/año. Área: 10,000 km². Vegetación: matorral y cultivos.",
+                basins: [
+                    { name: "Río Nazas", details: "Río que es vital para el suministro de agua en la región. Caudal promedio: 3 m³/s." },
+                    { name: "Río Aguanaval", details: "Río que presenta un caudal variable. Caudal promedio: 2 m³/s." },
+                    { name: "Presa Lázaro Cárdenas", details: "Presa que es importante para la agricultura local. Caudal variable." }
+                ]
+            },
+            "RH37 - El Salado": {
+                description: "Extensa región árida del centro-norte de México. Es una cuenca endorreica con escasas corrientes permanentes y alta presión sobre los acuíferos para consumo urbano y agrícola. Precipitación promedio: 100 mm/año. Área: 12,000 km². Vegetación: desierto.",
+                basins: [
+                    { name: "Valle de Arista", details: "Zona árida con escasa vegetación. Caudal variable." },
+                    { name: "Cuenca Sierra de Rodríguez", details: "Zona con lagunas interiores. Caudal variable." },
+                    { name: "Presa San José", details: "Presa que se utiliza para riego. Caudal variable." },
+                    { name: "Valle de San Luis Potosí", details: "Zona que presenta un caudal variable. Caudal promedio: 0.5 m³/s." },
+                    { name: "Fresnillo-Yesca", details: "Zona que es importante para la fauna local. Caudal variable." }
+                ]
+            }
+        };
+
+        // Función para mostrar el modal de cuencas
+        function showMexicanWatershedsModal() {
+            const modal = document.getElementById('basinsModal');
+            const closeBtn = document.getElementById('closeModal');
+            const regionsContainer = document.getElementById('regionsContainer');
+            const searchInput = document.getElementById('regionSearch');
+            
+            regionsContainer.innerHTML = '';
+            
+            Object.entries(mexicanHydrologicalRegions).forEach(([regionName, regionData]) => {
+                const basins = regionData.basins;
+                const description = regionData.description;
+                
+                const regionDiv = document.createElement('div');
+                regionDiv.className = 'region-item';
+                regionDiv.innerHTML = `
+                    <div class="region-header">
+                        <span>${regionName}</span>
+                        <span class="expand-icon">›</span>
+                    </div>
+                    <div class="basin-content" style="display:none; padding:10px; background-color:#f5f5f5; margin-top:5px; border-radius:4px;">
+                        <p class="region-description">${description}</p>
+                        <h4>Cuencas principales:</h4>
+                        <ul class="basin-list">
+                            ${basins.map(basin => `<li class="basin-item" onclick="showBasinDetail('${basin.name}')">${basin.name}</li>`).join('')}
+                        </ul>
+                    </div>
+                `;
+                
+                regionDiv.querySelector('.region-header').addEventListener('click', () => {
+                    const content = regionDiv.querySelector('.basin-content');
+                    if (content.style.display === 'none') {
+                        content.style.display = 'block';
+                        regionDiv.classList.add('expanded');
+                    } else {
+                        content.style.display = 'none';
+                        regionDiv.classList.remove('expanded');
+                    }
+                });
+                
+                regionsContainer.appendChild(regionDiv);
+            });
+            
+            searchInput.addEventListener('input', () => {
+                const searchTerm = searchInput.value.toLowerCase();
+                
+                Array.from(regionsContainer.querySelectorAll('.region-item')).forEach(regionItem => {
+                    const regionName = regionItem.querySelector('.region-header span').textContent.toLowerCase();
+                    const basins = Array.from(regionItem.querySelectorAll('.basin-item')).map(item => item.textContent.toLowerCase());
+                    const description = regionItem.querySelector('.region-description').textContent.toLowerCase();
+                    
+                    const regionMatch = regionName.includes(searchTerm);
+                    const basinMatch = basins.some(basin => basin.includes(searchTerm));
+                    const descriptionMatch = description.includes(searchTerm);
+                    
+                    regionItem.style.display = (regionMatch || basinMatch || descriptionMatch) ? 'block' : 'none';
+                    
+                    if ((basinMatch || descriptionMatch) && searchTerm.length > 2) {
+                        regionItem.querySelector('.basin-content').style.display = 'block';
+                        regionItem.classList.add('expanded');
+                    } else if (searchTerm.length <= 2 && !regionMatch) {
+                        regionItem.querySelector('.basin-content').style.display = 'none';
+                        regionItem.classList.remove('expanded');
+                    }
+                });
+            });
+            
+            modal.style.display = 'block';
+            
+            closeBtn.onclick = function() {
+                modal.style.display = 'none';
+            };
+            
+            window.onclick = function(event) {
+                if (event.target == modal) {
+                    modal.style.display = 'none';
+                }
+            };
+        }
+
+        // Función para mostrar detalles de la cuenca
+        function showBasinDetail(basinName) {
+            const basinDetailModal = document.getElementById('basinDetailModal');
+            const closeBasinDetailBtn = document.getElementById('closeBasinDetailModal');
+            const basinDetailContent = document.getElementById('basinDetailContent');
+            
+            // Buscar la cuenca en las regiones
+            for (const region of Object.values(mexicanHydrologicalRegions)) {
+                const basin = region.basins.find(b => b.name === basinName);
+                if (basin) {
+                    basinDetailContent.innerHTML = `
+                        <h3>${basin.name}</h3>
+                        <p>${basin.details}</p>
+                    `;
+                    break;
+                }
+            }
+            
+            basinDetailModal.style.display = 'block';
+            
+            closeBasinDetailBtn.onclick = function() {
+                basinDetailModal.style.display = 'none';
+            };
+            
+            window.onclick = function(event) {
+                if (event.target == basinDetailModal) {
+                    basinDetailModal.style.display = 'none';
+                }
+            };
+        }
+
+        // Función para obtener información general sobre cuencas hidrológicas de México
+        function getMexicanWatersheds() {
+            showMexicanWatershedsModal();
+        }
+        
+        // Función para obtener coordenadas de una ubicación (geocoding)
+        async function getLocationCoordinates(location) {
+            try {
+                const response = await fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(location)}&count=1&language=es&format=json`);
+                
+                if (!response.ok) {
+                    throw new Error(`Error en geocoding: ${response.status}`);
+                }
+                
+                const data = await response.json();
+                console.log("Datos de geocoding:", data);
+                
+                if (data.results && data.results.length > 0) {
+                    return {
+                        name: data.results[0].name,
+                        latitude: data.results[0].latitude,
+                        longitude: data.results[0].longitude,
+                        country: data.results[0].country,
+                        admin1: data.results[0].admin1 // Estado/provincia
+                    };
+                }
+                
+                return null;
+            } catch (error) {
+                console.error("Error obteniendo coordenadas:", error);
+                return null;
+            }
+        }
+
+        // Función para obtener datos climáticos actuales
+        async function fetchWeatherData(location) {
+            try {
+                console.log("Buscando clima para:", location);
+                
+                // 1. Obtener coordenadas
+                const coordinates = await getLocationCoordinates(location);
+                
+                if (!coordinates) {
+                    console.error("No se encontraron coordenadas para:", location);
+                    return null;
+                }
+                
+                // 2. Obtener clima con las coordenadas
+                const weatherUrl = `https://api.open-meteo.com/v1/forecast?latitude=${coordinates.latitude}&longitude=${coordinates.longitude}&current=temperature_2m,relative_humidity_2m,apparent_temperature,is_day,precipitation,rain,weather_code,wind_speed_10m&hourly=temperature_2m,weather_code&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_sum&timezone=auto&forecast_days=1`;
+                
+                const response = await fetch(weatherUrl);
+                
+                if (!response.ok) {
+                    throw new Error(`Error obteniendo clima: ${response.status}`);
+                }
+                
+                const weatherData = await response.json();
+                console.log("Datos de clima:", weatherData);
+                
+                // Añadir información de ubicación a los datos climáticos
+                return {
+                    ...weatherData,
+                    location: coordinates
+                };
+                
+            } catch (error) {
+                console.error("Error detallado:", error);
+                return null;
+            }
+        }
+
+        // Función para obtener pronóstico para varios días
+        async function fetchForecastData(location) {
+            try {
+                console.log("Buscando pronóstico para:", location);
+                
+                // 1. Obtener coordenadas
+                const coordinates = await getLocationCoordinates(location);
+                
+                if (!coordinates) {
+                    console.error("No se encontraron coordenadas para:", location);
+                    return null;
+                }
+                
+                // 2. Obtener pronóstico con las coordenadas (7 días)
+                const forecastUrl = `https://api.open-meteo.com/v1/forecast?latitude=${coordinates.latitude}&longitude=${coordinates.longitude}&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_sum,precipitation_probability_max&timezone=auto&forecast_days=7`;
+                
+                const response = await fetch(forecastUrl);
+                
+                if (!response.ok) {
+                    throw new Error(`Error obteniendo pronóstico: ${response.status}`);
+                }
+                
+                const forecastData = await response.json();
+                console.log("Datos de pronóstico:", forecastData);
+                
+                // Añadir información de ubicación al pronóstico
+                return {
+                    ...forecastData,
+                    location: coordinates
+                };
+                
+            } catch (error) {
+                console.error("Error detallado:", error);
+                return null;
+            }
+        }
+
+        // Traducir códigos de condición climática WMO (World Meteorological Organization)
+        function translateWeatherCode(code) {
+            const weatherCodes = {
+                0: "Cielo despejado",
+                1: "Mayormente despejado",
+                2: "Parcialmente nublado",
+                3: "Nublado",
+                45: "Niebla",
+                48: "Niebla con escarcha",
+                51: "Llovizna ligera",
+                53: "Llovizna moderada",
+                55: "Llovizna intensa",
+                56: "Llovizna helada ligera",
+                57: "Llovizna helada densa",
+                61: "Lluvia ligera",
+                63: "Lluvia moderada",
+                65: "Lluvia intensa",
+                66: "Lluvia helada ligera",
+                67: "Lluvia helada intensa",
+                71: "Nevada ligera",
+                73: "Nevada moderada",
+                75: "Nevada intensa",
+                77: "Aguanieve",
+                80: "Lluvia ligera intermitente",
+                81: "Lluvia moderada intermitente",
+                82: "Lluvia intensa intermitente",
+                85: "Nevada ligera intermitente",
+                86: "Nevada intensa intermitente",
+                95: "Tormenta eléctrica",
+                96: "Tormenta con granizo ligero",
+                99: "Tormenta con granizo intenso"
+            };
+            
+            return weatherCodes[code] || "Condición desconocida";
+        }
+
+        // Obtener información climática actual
+        async function getWeatherInformation(location) {
+            try {
+                addMessage(`Buscando información climática para ${location}...`, true);
+                
+                // Obtener datos del clima
+                const weatherData = await fetchWeatherData(location);
+                
+                if (!weatherData || !weatherData.current) {
+                    return `Lo siento, no pude encontrar información climática para "${location}". Por favor, verifica el nombre de la ubicación.`;
+                }
+                
+                
+
+
+
+
+                // Extraer datos relevantes
+                const current = weatherData.current;
+                const locationName = weatherData.location.name;
+                const country = weatherData.location.country;
+                const region = weatherData.location.admin1 || "";
+                
+                const temp = Math.round(current.temperature_2m);
+                const feelsLike = Math.round(current.apparent_temperature);
+                const humidity = current.relative_humidity_2m;
+                const windSpeed = Math.round(current.wind_speed_10m * 3.6); // convertir a km/h
+                const condition = translateWeatherCode(current.weather_code);
+                const precipitation = current.precipitation;
+                
+                // Fecha y hora local
+                const now = new Date();
+                const day = now.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' });
+                
+                // Crear mensaje de respuesta sin iconos
+                return `El clima actual para ${locationName}, ${region ? region + ", " : ""}${country} - ${day}:
+                
+Temperatura: ${temp}°C (Sensación térmica: ${feelsLike}°C)
+Condición: ${condition}
+Humedad: ${humidity}%
+Precipitación: ${precipitation} mm
+Viento: ${windSpeed} km/h`;
+                
+            } catch (error) {
+                console.error("Error al obtener información del clima:", error);
+                return `Lo siento, hubo un problema al consultar el clima para ${location}. Por favor, intenta más tarde.`;
+            }
+        }
+
+        // Obtener pronóstico para varios días
+        async function generateForecastWeather(location) {
+            try {
+                addMessage(`Buscando pronóstico para ${location}...`, true);
+                
+                // Obtener datos del pronóstico
+                const forecastData = await fetchForecastData(location);
+                
+                if (!forecastData || !forecastData.daily) {
+                    return `Lo siento, no pude encontrar el pronóstico para "${location}". Por favor, verifica el nombre de la ubicación.`;
+                }
+                
+                // Extraer datos relevantes
+                const daily = forecastData.daily;
+                const locationName = forecastData.location.name;
+                const country = forecastData.location.country;
+                
+                // Crear mensaje de pronóstico
+                let forecastText = `Pronóstico para ${locationName}, ${country} en los próximos días:\n\n`;
+                
+                // Generar pronóstico para los días disponibles (hasta 5)
+                const maxDays = Math.min(5, daily.time.length);
+                
+                for (let i = 0; i < maxDays; i++) {
+                    const date = new Date(daily.time[i]);
+                    const dayName = date.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric' });
+                    
+                    const minTemp = Math.round(daily.temperature_2m_min[i]);
+                    const maxTemp = Math.round(daily.temperature_2m_max[i]);
+                    const condition = translateWeatherCode(daily.weather_code[i]);
+                    const precipitation = daily.precipitation_sum[i];
+                    const precipitationProb = daily.precipitation_probability_max ? daily.precipitation_probability_max[i] : "N/A";
+                    
+                    forecastText += `${dayName}: ${condition}.\n`;
+                    forecastText += ` Temperatura: ${minTemp}°C a ${maxTemp}°C\n`;
+                    forecastText += ` Precipitación: ${precipitation} mm`;
+                    
+                    if (precipitationProb !== "N/A") {
+                        forecastText += ` (Probabilidad: ${precipitationProb}%)`;
+                    }
+                    
+                    forecastText += "\n\n";
+                }
+                
+                return forecastText;
+                
+            } catch (error) {
+                console.error("Error al obtener pronóstico:", error);
+                return `Lo siento, hubo un problema al consultar el pronóstico para ${location}. Por favor, intenta más tarde.`;
+            }
+        }
+
+        // Función para texto a voz
+        function speakText(text) {
+            if (isMuted || !speech) return;
+            
+            try {
+                speech.cancel();
+                const utterance = new SpeechSynthesisUtterance(text);
+                utterance.lang = 'es-ES';
+                utterance.rate = 1.0;
+                speech.speak(utterance);
+            } catch (e) {
+                console.log('Error en síntesis de voz:', e);
+            }
+        }
+        
+        // Agregar mensaje al chat
+        function addMessage(text, isBot = false) {
+            const msgDiv = document.createElement('div');
+            msgDiv.classList.add(isBot ? 'bot-message' : 'user-message');
+            msgDiv.textContent = text;
+            chatbox.appendChild(msgDiv);
+            chatbox.scrollTop = chatbox.scrollHeight;
+            
+            if (isBot) {
+                speakText(text);
+            }
+        }
+        
+        // Función mejorada para detectar consultas de clima
+        function isWeatherQuery(text) {
+            const weatherKeywords = [
+                'clima', 'tiempo', 'temperatura', 'lluvia', 'llover', 'pronostico', 
+                'pronóstico', 'meteorología', 'meteorológico', 'sol', 'calor', 
+                'frío', 'frio', 'nublado', 'precipitación', 'meteo', 'viento'
+            ];
+            
+            const lowerText = text.toLowerCase();
+            
+            for (const keyword of weatherKeywords) {
+                if (lowerText.includes(keyword)) {
+                    return true;
+                }
+            }
+            
+            return false;
+        }
+        
+        // Función mejorada para extraer la ubicación
+        function extractLocation(text) {
+            const lowerText = text.toLowerCase();
+            
+            // Si la consulta es muy corta, puede ser directamente el nombre de la ciudad
+            if (lowerText.split(' ').length <= 3) {
+                // Verificar que no sea solo una palabra de clima
+                const weatherTerms = ['clima', 'tiempo', 'lluvia', 'sol', 'nublado'];
+                const words = lowerText.split(' ');
+                
+                if (words.length === 1 && !weatherTerms.includes(words[0])) {
+                    return text.trim();
+                }
+            }
+            
+            if (isWeatherQuery(text)) {
+                const patterns = [
+                    /clima (?:en|de) ([\wáéíóúüñ\s]+)/i,                  
+                    /tiempo (?:en|de) ([\wáéíóúüñ\s]+)/i,                 
+                    /pronóstico (?:de|para|en) ([\wáéíóúüñ\s]+)/i,        
+                    /pronostico (?:de|para|en) ([\wáéíóúüñ\s]+)/i,        
+                    /(?:cómo|como) (?:está|estará|es|sera) el clima (?:en|de) ([\wáéíóúüñ\s]+)/i,  
+                    /(?:va a|va|habrá|hay|hará) (?:llover|lluvia|sol|calor|frío|frio) (?:en|hoy en) ([\wáéíóúüñ\s]+)/i,  
+                    /temperatura (?:en|de) ([\wáéíóúüñ\s]+)/i,           
+                    /clima (?:para|de) ([\wáéíóúüñ\s]+)/i,               
+                    /(?:el|la) (?:clima|tiempo|temperatura) (?:en|de) ([\wáéíóúüñ\s]+)/i, 
+                    /(?:qué|que) (?:clima|tiempo) (?:hace|hay) (?:en|hoy en) ([\wáéíóúüñ\s]+)/i,
+                    /(?:ciudad|en) ([\wáéíóúüñ\s]+)/i,
+                    // Patrón para capturar la última parte de la frase
+                    /(\b[\wáéíóúüñ\s]{2,})\s*$/i
+                ];
+                
+                for (const pattern of patterns) {
+                    const match = text.match(pattern);
+                    if (match && match[1]) {
+                        const location = match[1].trim().replace(/[?.,;!]/g, '');
+                        console.log("Ubicación extraída:", location);
+                        return location;
+                    }
+                }
+                
+                // Si no se encontró un patrón, intentar identificar una ciudad usando palabras comunes
+                const words = lowerText.replace(/[?.,;!]/g, '').split(' ');
+                if (words.length > 0) {
+                    const commonWords = ['clima', 'tiempo', 'el', 'la', 'en', 'de', 'pronostico', 'pronóstico', 
+                                       'temperatura', 'hace', 'hay', 'va', 'para', 'hoy', 'mañana', 
+                                       'lluvia', 'llover', 'sol', 'calor', 'frio', 'frío', 'me', 'puedes', 'decir',
+                                       'como', 'cómo', 'está', 'esta', 'del', 'actual', 'ahora'];
+                    
+                    // Buscar palabras que no sean comunes y sean potenciales ciudades
+                    const potentialCities = [];
+                    for (let i = 0; i < words.length; i++) {
+                        if (!commonWords.includes(words[i]) && words[i].length > 2) {
+                            potentialCities.push(words[i]);
+                        }
+                    }
+                    
+                    // Si hay ciudades potenciales, tomar la última (suele ser la ciudad en preguntas)
+                    if (potentialCities.length > 0) {
+                        const city = potentialCities[potentialCities.length - 1];
+                        console.log("Ciudad potencial:", city);
+                        return city.charAt(0).toUpperCase() + city.slice(1);
+                    }
+                }
+            }
+            return null;
+        }
+
+        // Función para buscar en Wikipedia
+        async function searchWikipedia(query) {
+            try {
+                const response = await fetch(`https://es.wikipedia.org/w/api.php?action=query&list=search&srsearch=${encodeURIComponent(query)}&utf8=&format=json&origin=*`);
+                
+                if (!response.ok) {
+                    throw new Error(`Error en la búsqueda de Wikipedia: ${response.status}`);
+                }
+                
+                const data = await response.json();
+                
+                if (data.query.search.length > 0) {
+                    const pageTitle = data.query.search[0].title;
+                    const pageResponse = await fetch(`https://es.wikipedia.org/w/api.php?action=query&titles=${encodeURIComponent(pageTitle)}&prop=extracts&exintro&explaintext&format=json&origin=*`);
+                    const pageData = await pageResponse.json();
+                    const pageId = Object.keys(pageData.query.pages)[0];
+                    const content = pageData.query.pages[pageId].extract;
+                    
+                    return {
+                        title: pageTitle,
+                        content: content
+                    };
+                }
+                
+                return null;
+            } catch (error) {
+                console.error("Error al buscar en Wikipedia:", error);
+                return null;
+            }
+        }
+
+        // Procesar el mensaje del usuario y generar respuesta
+        async function processMessage(text) {
+            if (!text.trim()) return;
+            
+            // Si estamos esperando el nombre del usuario
+            if (waitingForName) {
+                userName = text.trim();
+                waitingForName = false;
+                addMessage(`¡Hola ${userName}! Soy el asistente virtual especializado en cuencas hidrológicas. Puedes preguntarme sobre temas como ciclo hidrológico, erosión, tipos de cuencas o incluso consultar el clima de cualquier lugar. ¿En qué puedo ayudarte hoy?`, true);
+                return;
+            }
+            
+            // Convertir texto a minúsculas para comparaciones
+            const lowerText = text.toLowerCase();
+            
+            // Verificar si es una consulta de clima
+            if (isWeatherQuery(lowerText)) {
+                const location = extractLocation(text);
+                if (location) {
+                    // Determinar si es pronóstico a futuro o clima actual
+                    if (lowerText.includes("pronóstico") || lowerText.includes("pronostico") || 
+                        lowerText.includes("próximos días") || lowerText.includes("proximos dias") || 
+                        lowerText.includes("semana") || lowerText.includes("mañana")) {
+                        const forecast = await generateForecastWeather(location);
+                        addMessage(forecast, true);
+                    } else {
+                        const weatherInfo = await getWeatherInformation(location);
+                        addMessage(weatherInfo, true);
+                    }
+                    return;
+                }
+            }
+            
+            // Buscar en la base de conocimiento hidrológico
+            for (const [keyword, info] of Object.entries(hydrologicalKnowledge)) {
+                if (lowerText.includes(keyword)) {
+                    addMessage(info, true);
+                    return;
+                }
+            }
+            
+            // Si no encontramos una respuesta específica, buscar en Wikipedia
+            addMessage("Buscando información relevante en Wikipedia...", true);
+            isSearching = true;
+            
+            const wikiResult = await searchWikipedia(text);
+            
+            if (wikiResult) {
+                const message = `Información sobre "${wikiResult.title}":\n\n${wikiResult.content}\n\nPuedes consultar más información en Wikipedia.`;
+                addMessage(message, true);
+            } else {
+                addMessage("Lo siento, no encontré información específica sobre tu consulta. ¿Puedes reformularla o preguntar sobre otro tema relacionado con hidrología o cuencas?", true);
+            }
+            
+            isSearching = false;
+        }
+        
+        // Función para enviar mensaje
+        function sendMessage() {
+            const message = userInput.value.trim();
+            if (message) {
+                addMessage(message, false);
+                processMessage(message);
+                userInput.value = '';
+            }
+        }
+        
+        // Evento para botón de enviar
+        sendBtn.addEventListener('click', sendMessage);
+        
+        // Evento para enviar con Enter
+        userInput.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                sendMessage();
+            }
+        });
+        
+        // Evento para botón de reiniciar
+        resetBtn.addEventListener('click', function() {
+            chatbox.innerHTML = '';
+            waitingForName = true;
+            addMessage("¡Hola! Soy el asistente virtual de cuencas hidrológicas. ¿Cuál es tu nombre?", true);
+        });
+        
+        // Evento para botón de silenciar
+        muteBtn.addEventListener('click', function() {
+            isMuted = !isMuted;
+            this.textContent = isMuted ? "Activar voz" : "Silenciar";
+            if (isMuted) {
+                speech.cancel();
+            }
+        });
+        
+        // Evento para botón del micrófono
+        micBtn.addEventListener('click', function() {
+            if (!recognition) {
+                alert('Lo sentimos, el reconocimiento de voz no es compatible con este navegador.');
+                return;
+            }
+            
+            try {
+                if (this.classList.contains('listening')) {
+                    recognition.stop();
+                    this.classList.remove('listening');
+                    userInput.placeholder = "Escribe tu mensaje aquí...";
+                } else {
+                    recognition.start();
+                    this.classList.add('listening');
+                    userInput.placeholder = "Escuchando...";
+                }
+            } catch(e) {
+                console.error('Error al activar el micrófono:', e);
+            }
+        });
+        
+        // Evento para botón de cuencas de México
+        document.getElementById('mexicoBasinsBtn').addEventListener('click', function() {
+            getMexicanWatersheds();
+        });
+        
+        // Iniciar el chat
+        window.onload = function() {
+            addMessage("¡Hola! Soy el asistente virtual de cuencas hidrológicas. ¿Cuál es tu nombre?", true);
+        };
+    </script>
+</body>
+</html>
+
